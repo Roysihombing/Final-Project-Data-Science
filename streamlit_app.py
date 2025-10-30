@@ -1,290 +1,594 @@
+# streamlit_app.py
 # ==========================================================
-# 📊 STREAMLIT DASHBOARD – PRODUCT SEGMENTATION & SALES ANALYSIS
-# by Roy Sihombing | Final Project – Data Science
+# Product Segmentation & Sales Analytics Dashboard
+# Uses dataset from GitHub raw CSV and models from GitHub raw (.pkl)
 # ==========================================================
 
 import streamlit as st
 import pandas as pd
 import numpy as np
+import joblib
+import os
 import plotly.express as px
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans, AgglomerativeClustering, DBSCAN
-from sklearn.metrics import silhouette_score
-from io import BytesIO
 import requests
-from kneed import KneeLocator
-import random
+import tempfile
+from sklearn.metrics import silhouette_score
 
-# -------------------------------------------------
-# ⚙️ PAGE CONFIG
-# -------------------------------------------------
-st.set_page_config(
-    page_title="Product Segmentation Dashboard",
-    page_icon="📈",
-    layout="wide"
-)
-
+st.set_page_config(page_title="Product Segmentation Dashboard", page_icon="📈", layout="wide")
 st.title("📊 Product Segmentation & Sales Analytics Dashboard")
-st.caption("Analisis segmentasi produk dan pergerakan penjualan berdasarkan berbagai algoritma clustering.")
+st.caption("Segmentasi produk (KMeans / Agglomerative / DBSCAN) + analisa pergerakan penjualan")
 st.divider()
 
-# -------------------------------------------------
-# 📂 SIDEBAR MENU
-# -------------------------------------------------
+# -------------------------
+# Config: URLs & local model folder (models will be loaded from GitHub raw)
+# -------------------------
+PRODUCT_URL = "https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/dataset/product_clustered.csv"
+SALES_URL = "https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/dataset/sales_sampled.csv"
+
+# GitHub raw URLs for models (provided by you)
+MODEL_RAW = {
+    "scaler":  "https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/models/scaler.pkl",
+    "pca_stage1":"https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/models/pca_stage1.pkl",
+    "pca_stage2":"https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/models/pca_stage2.pkl",
+    "kmeans":  "https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/models/kmeans.pkl",
+    "agg_best":"https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/models/agg_best.pkl",
+    "dbscan_best":"https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/models/dbscan_best.pkl"
+}
+
+# -------------------------
+# Load CSVs from GitHub raw
+# -------------------------
+@st.cache_data(show_spinner=False)
+def load_csvs():
+    df = pd.read_csv(PRODUCT_URL)
+    sales_df = pd.read_csv(SALES_URL)
+    return df, sales_df
+
+# -------------------------
+# Load models from GitHub raw (download to temp files then joblib.load)
+# -------------------------
+@st.cache_resource(show_spinner=False)
+def load_models_from_github(model_raw_map):
+    models = {}
+    for key, url in model_raw_map.items():
+        try:
+            r = requests.get(url, timeout=20)
+            if r.status_code == 200 and r.content:
+                # write to temp file and load
+                with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                    tmp.write(r.content)
+                    tmp_path = tmp.name
+                models[key] = joblib.load(tmp_path)
+            else:
+                models[key] = None
+        except Exception:
+            models[key] = None
+    return models
+
+# -------------------------
+# Try load data & models
+# -------------------------
+try:
+    df, sales_df = load_csvs()
+except Exception as e:
+    st.error(f"⚠️ Gagal memuat dataset dari GitHub: {e}")
+    st.stop()
+
+models = load_models_from_github(MODEL_RAW)
+models_available = any(v is not None for v in models.values())
+
+if models_available:
+    st.info("✅ Models berhasil dimuat dari GitHub (raw).")
+else:
+    st.info("ℹ️ Models gagal dimuat dari GitHub. Dashboard akan mengutamakan label yang tersimpan di CSV.")
+
+# -------------------------
+# Sidebar: mode & filters
+# -------------------------
 st.sidebar.header("⚙️ Pilihan Analisis")
-mode = st.sidebar.radio(
-    "Pilih Mode Analisis:",
-    ("📊 Segmentasi Produk", "📈 Pergerakan Penjualan")
-)
+mode = st.sidebar.radio("Pilih Mode Analisis:", ("📊 Segmentasi Produk", "📈 Pergerakan Penjualan"))
 
-# ==========================================================
-# 📊 SEGMENTASI PRODUK
-# ==========================================================
 if mode == "📊 Segmentasi Produk":
-
-    # -------------------------------------------------
-    # 🔄 LOAD DATASET PRODUK
-    # -------------------------------------------------
-    @st.cache_data
-    def load_data():
-        url = "https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/dataset/product_df.xlsx"
-        df = pd.read_excel(url, engine="openpyxl")
-        return df
-
-    df = load_data()
-    df = df.sample(frac=1, random_state=42).reset_index(drop=True)
-
-    st.subheader("📦 Dataset Produk")
-    st.dataframe(df.head(10), use_container_width=True)
-    st.write(f"Jumlah data: **{df.shape[0]} baris**, **{df.shape[1]} kolom**")
-
-    numeric_features = [
-        'Total_Purchases', 'Total_Amount', 'Ratings',
-        'Avg_Amount_per_Purchase', 'Profitability_Index'
-    ]
-
-    # -------------------------------------------------
-    # 🔧 DATA PREPARATION (dikunci supaya hasil identik)
-    # -------------------------------------------------
-    np.random.seed(42)
-    random.seed(42)
-
-    # Pastikan float64
-    scaled_data = np.array(df[numeric_features], dtype=np.float64)
-    scaler = StandardScaler(copy=True)
-    scaled_data = scaler.fit_transform(scaled_data)
-
-    # Tahap 1: PCA n_components=0.95
-    pca1 = PCA(n_components=0.95, random_state=42, copy=True)
-    stage1 = pca1.fit_transform(scaled_data)
-
-    # Tahap 2: PCA n_components=3
-    pca2 = PCA(n_components=3, random_state=42, copy=True)
-    scaled_pca = pca2.fit_transform(stage1)
-
-    # -------------------------------------------------
-    # 🔍 PILIH ALGORITMA
-    # -------------------------------------------------
     algo_choice = st.sidebar.multiselect(
         "Pilih Algoritma Clustering:",
         ["K-Means", "Agglomerative", "DBSCAN"],
         default=[]
     )
-
     if not algo_choice:
         algo_choice = ["K-Means", "Agglomerative", "DBSCAN"]
-
-    results = []
-    summaries = {}
-
-    # -------------------------------------------------
-    # 🧩 K-MEANS
-    # -------------------------------------------------
-    if "K-Means" in algo_choice:
-        sse = []
-        for k in range(2, 11):
-            km = KMeans(n_clusters=k, random_state=42, n_init=10, max_iter=300, tol=1e-4)
-            km.fit(scaled_pca)
-            sse.append(km.inertia_)
-
-        kl = KneeLocator(range(2, 11), sse, curve="convex", direction="decreasing")
-        optimal_k = 4  # hasil tetap dari notebook kamu
-
-        kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10, max_iter=300, tol=1e-4)
-        labels = kmeans.fit_predict(scaled_pca)
-        df['KMeans_Cluster'] = labels
-        sil = silhouette_score(scaled_pca, labels)
-
-        results.append({"Model": "K-Means", "Silhouette Score": round(sil, 3), "Jumlah Cluster": optimal_k})
-
-        kmeans_summary = (
-            df.groupby('KMeans_Cluster')
-            .agg({
-                'Product_Category': lambda x: x.mode()[0],
-                'Product_Brand': lambda x: x.mode()[0],
-                'Total_Purchases': 'mean',
-                'Ratings': 'mean',
-                'Total_Amount': 'mean',
-                'Profitability_Index': 'mean'
-            })
-            .reset_index()
-            .rename(columns={
-                'KMeans_Cluster': 'Cluster',
-                'Product_Category': 'Dominant_Category',
-                'Product_Brand': 'Dominant_Brand'
-            })
-        )
-        summaries['K-Means'] = kmeans_summary
-
-    # -------------------------------------------------
-    # 🧬 AGGLOMERATIVE
-    # -------------------------------------------------
-    if "Agglomerative" in algo_choice:
-        best_n_agg = 3  # hasil dari Python
-        agg_model = AgglomerativeClustering(n_clusters=best_n_agg)
-        labels = agg_model.fit_predict(scaled_pca)
-        df['Agg_Cluster'] = labels
-        sil = silhouette_score(scaled_pca, labels)
-
-        results.append({"Model": "Agglomerative", "Silhouette Score": round(sil, 3), "Jumlah Cluster": best_n_agg})
-
-        agg_summary = (
-            df.groupby('Agg_Cluster')
-            .agg({
-                'Product_Category': lambda x: x.mode()[0],
-                'Product_Brand': lambda x: x.mode()[0],
-                'Total_Purchases': 'mean',
-                'Ratings': 'mean',
-                'Total_Amount': 'mean',
-                'Profitability_Index': 'mean'
-            })
-            .reset_index()
-            .rename(columns={
-                'Agg_Cluster': 'Cluster',
-                'Product_Category': 'Dominant_Category',
-                'Product_Brand': 'Dominant_Brand'
-            })
-        )
-        summaries['Agglomerative'] = agg_summary
-
-    # -------------------------------------------------
-    # 🌐 DBSCAN
-    # -------------------------------------------------
-    if "DBSCAN" in algo_choice:
-        db = DBSCAN(eps=1.2, min_samples=5)
-        labels = db.fit_predict(scaled_pca)
-        n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-        sil = silhouette_score(scaled_pca, labels) if n_clusters > 1 else 0
-        df['DBSCAN_Cluster'] = labels
-
-        results.append({"Model": "DBSCAN", "Silhouette Score": round(sil, 3), "Jumlah Cluster": n_clusters})
-
-        db_summary = (
-            df[df['DBSCAN_Cluster'] != -1]
-            .groupby('DBSCAN_Cluster')
-            .agg({
-                'Product_Category': lambda x: x.mode()[0],
-                'Product_Brand': lambda x: x.mode()[0],
-                'Total_Purchases': 'mean',
-                'Ratings': 'mean',
-                'Total_Amount': 'mean',
-                'Profitability_Index': 'mean'
-            })
-            .reset_index()
-            .rename(columns={
-                'DBSCAN_Cluster': 'Cluster',
-                'Product_Category': 'Dominant_Category',
-                'Product_Brand': 'Dominant_Brand'
-            })
-        )
-        summaries['DBSCAN'] = db_summary
-
-    # -------------------------------------------------
-    # 📊 PERBANDINGAN MODEL
-    # -------------------------------------------------
-    st.markdown("### 📈 Perbandingan Model Clustering – Product Segmentation")
-    compare_df = pd.DataFrame(results)
-    st.dataframe(compare_df.style.background_gradient(cmap='YlGnBu', subset=['Silhouette Score']))
-
-    # -------------------------------------------------
-    # 🧭 CENTROID DAN INTERPRETASI
-    # -------------------------------------------------
-    for model, summary in summaries.items():
-        st.markdown(f"### 🧩 Ringkasan Tiap Cluster – {model}")
-        st.dataframe(
-            summary.style.background_gradient(
-                cmap='YlGnBu',
-                subset=['Total_Purchases', 'Total_Amount', 'Profitability_Index']
-            )
-        )
-
-        st.markdown(f"### 🧭 Interpretasi Segmentasi ({model})")
-        interpret_html = f"""
-        <table style="width:100%; border-collapse:collapse; color:#f5f5f5; font-family:Arial;">
-          <thead style="background-color:#1E293B;">
-            <tr>
-              <th style="padding:10px;">Cluster</th>
-              <th style="padding:10px;">Kategori & Brand Dominan</th>
-              <th style="padding:10px;">Karakteristik Produk</th>
-              <th style="padding:10px;">Strategi & Rekomendasi</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr style="background-color:#2D3748;">
-              <td>0</td><td>Books – Adidas</td>
-              <td>Produk dengan penjualan tinggi, profit besar, pelanggan loyal.</td>
-              <td>Pertahankan stok & program loyalitas pelanggan.</td>
-            </tr>
-            <tr style="background-color:#374151;">
-              <td>1</td><td>Electronics – BlueStar</td>
-              <td>Produk dengan rating tinggi, profit sedang, potensial untuk promosi.</td>
-              <td>Optimalkan digital marketing & kolaborasi marketplace.</td>
-            </tr>
-            <tr style="background-color:#2D3748;">
-              <td>2</td><td>Electronics – Pepsi</td>
-              <td>Produk dengan profit rendah & permintaan kecil.</td>
-              <td>Evaluasi harga, kurangi stok, atau reposisi produk.</td>
-            </tr>
-          </tbody>
-        </table>
-        """
-        st.markdown(interpret_html, unsafe_allow_html=True)
-
-# ==========================================================
-# 📈 PERGERAKAN PENJUALAN PRODUK
-# ==========================================================
 else:
-    st.subheader("📈 Analisis Pergerakan Penjualan Produk")
+    algo_choice = []
 
-    @st.cache_data
-    def load_sales_data():
-        file_id = "1hFrTkoZfwcH8ltdK254ZGdyx_FbIHneZ"
-        url = f"https://drive.google.com/uc?export=download&id={file_id}"
-        resp = requests.get(url)
-        if resp.status_code != 200 or "text/html" in resp.headers.get("Content-Type", ""):
-            st.error("⚠️ Gagal memuat data penjualan. Pastikan file Drive publik & valid (.xlsx)")
-            return None
-        return pd.read_excel(BytesIO(resp.content), engine="openpyxl")
+# -------------------------
+# Helpers: detect cluster columns in df
+# -------------------------
+def detect_cluster_col(df, algo_name):
+    patterns = {
+        "K-Means": ["K-Means_Cluster", "KMeans_Cluster", "KMeans", "K-Means"],
+        "Agglomerative": ["Agglomerative_Cluster", "Agg_Cluster", "AggCluster", "Agglomerative"],
+        "DBSCAN": ["DBSCAN_Cluster", "DBSCANCluster", "DBSCAN"]
+    }
+    for p in patterns.get(algo_name, []):
+        if p in df.columns:
+            return p
+    for col in df.columns:
+        if algo_name.replace("-", "").lower() in col.replace("_", "").lower():
+            return col
+    return None
 
-    sales_df = load_sales_data()
-    if sales_df is None:
+# -------------------------
+# Numeric features used for PCA/scaling (kept as kamu definisikan)
+# -------------------------
+numeric_features = [
+    'Total_Purchases', 'Total_Amount', 'Ratings',
+    'Avg_Amount_per_Purchase', 'Profitability_Index'
+]
+
+# Validate numeric features exist
+for c in numeric_features:
+    if c not in df.columns:
+        st.error(f"Kolom numerik `{c}` tidak ditemukan di product_clustered.csv — periksa dataset.")
         st.stop()
 
-    st.dataframe(sales_df.head(10), use_container_width=True)
-    product_list = sales_df['Product_Name'].unique()
+# -------------------------
+# compute scaled & PCA representations (use saved scaler/pca if available)
+# This part now handles feature-name mismatch:
+# - If scaler has feature_names_in_ -> use those columns (fill missing with 0)
+# - Else if scaler.n_features_in_ matches numeric_features length -> use numeric_features
+# - Else fallback: fit a new scaler+pca locally (warn)
+# -------------------------
+def compute_scaled_pca_safe(df, numeric_features, models):
+    X_num_df = df.copy()
+    X_num = df[numeric_features]  # DataFrame of numeric base features
+
+    scaler = models.get('scaler', None)
+    pca1 = models.get('pca_stage1', None)
+    pca2 = models.get('pca_stage2', None)
+
+    # If scaler present and has feature names info, use them
+    if scaler is not None:
+        # try get feature names used when scaler was fitted
+        feature_names = getattr(scaler, "feature_names_in_", None)
+        n_features_in = getattr(scaler, "n_features_in_", None)
+
+        if feature_names is not None:
+            # ensure all feature_names present in df; if missing -> fill 0
+            missing = [c for c in feature_names if c not in df.columns]
+            if missing:
+                for m in missing:
+                    X_num_df[m] = 0.0
+            X_for_scaler = X_num_df[feature_names].astype(float).values
+            try:
+                Xs = scaler.transform(X_for_scaler)
+            except Exception as e:
+                st.warning(f"⚠️ Gagal transform dengan scaler (feature_names_in_ path): {e}. Akan fallback ke fit scaler lokal.")
+                scaler = None  # force fallback
+        elif n_features_in is not None:
+            # if scaler expects same number of features as our numeric_features, use them
+            if n_features_in == X_num.shape[1]:
+                try:
+                    Xs = scaler.transform(X_num.values.astype(float))
+                except Exception as e:
+                    st.warning(f"⚠️ Gagal transform dengan scaler (n_features match): {e}. Akan fallback ke fit scaler lokal.")
+                    scaler = None
+            else:
+                # scaler expects different count -> try to create zero columns to match n_features_in
+                st.warning("⚠️ Scaler expects different number of features than `numeric_features`. "
+                           "Attempting to create placeholder columns to match scaler's expected input.")
+                # if scaler has attribute 'n_features_in_', create dummy columns named feat_0.. to feed it
+                try:
+                    needed = int(n_features_in)
+                    # existing columns
+                    cols = list(X_num.columns)
+                    # add placeholder columns with zeros
+                    idx = 0
+                    while len(cols) < needed:
+                        cand = f"__placeholder_{idx}"
+                        if cand not in X_num_df.columns:
+                            X_num_df[cand] = 0.0
+                            cols.append(cand)
+                        idx += 1
+                    X_for_scaler = X_num_df[cols[:needed]].astype(float).values
+                    Xs = scaler.transform(X_for_scaler)
+                except Exception as e:
+                    st.warning(f"⚠️ Gagal menyesuaikan input untuk scaler: {e}. Akan fallback ke fit scaler lokal.")
+                    scaler = None
+        else:
+            # no feature info available -> fallback
+            scaler = None
+
+    # If scaler or pcas unavailable or fallback triggered, fit locally (warning)
+    if scaler is None or pca1 is None or pca2 is None:
+        st.warning("⚠️ Menggunakan fallback: scaler/PCA lokal dibuat ulang. Hasil clustering bisa berbeda dari Colab jika model asli tidak tersedia.")
+        from sklearn.preprocessing import StandardScaler
+        from sklearn.decomposition import PCA
+        sc_local = StandardScaler()
+        Xs = sc_local.fit_transform(X_num.values.astype(float))
+        p1_local = PCA(n_components=0.95, random_state=42)
+        s1 = p1_local.fit_transform(Xs)
+        p2_local = PCA(n_components=3, random_state=42)
+        s2 = p2_local.fit_transform(s1)
+        return s2
+
+    # If we have Xs and pcas from models, apply them
+    try:
+        s1 = pca1.transform(Xs)
+        s2 = pca2.transform(s1)
+        return s2
+    except Exception as e:
+        st.warning(f"⚠️ Gagal transform dengan pca_stage1/2 dari model: {e}. Akan fallback ke PCA lokal.")
+        from sklearn.decomposition import PCA
+        p1_local = PCA(n_components=0.95, random_state=42)
+        s1 = p1_local.fit_transform(Xs)
+        p2_local = PCA(n_components=3, random_state=42)
+        s2 = p2_local.fit_transform(s1)
+        return s2
+
+scaled_pca = compute_scaled_pca_safe(df, numeric_features, models)
+
+# -------------------------
+# Main: Segmentasi Produk
+# -------------------------
+if mode == "📊 Segmentasi Produk":
+    st.subheader("📦 Dataset Produk (sample)")
+    st.dataframe(df.head(10), use_container_width=True)
+    st.write(f"Jumlah data: **{df.shape[0]} baris**, **{df.shape[1]} kolom**")
+    st.divider()
+
+    results = []      # list of dicts for comparison table
+    summaries = {}    # per algorithm summary df
+    visuals = {}      # per algorithm plotly figure
+
+    # For each selected algorithm, find cluster column in df (prefer CSV labels). If not found, try to use saved model.
+    for algo in algo_choice:
+        col = detect_cluster_col(df, algo)
+        labels = None
+
+        # If CSV already contains cluster labels, use them (preferred)
+        if col is not None and col in df.columns:
+            labels = df[col].values
+        else:
+            # try using saved model to produce labels (only if model exists)
+            if algo == "K-Means" and models.get('kmeans') is not None:
+                try:
+                    labels = models['kmeans'].predict(scaled_pca)
+                    col = "K-Means_Cluster"
+                    df[col] = labels
+                except Exception:
+                    labels = None
+            elif algo == "Agglomerative" and models.get('agg_best') is not None:
+                m = models['agg_best']
+                try:
+                    if hasattr(m, "labels_") and len(getattr(m, "labels_", [])) == len(df):
+                        labels = m.labels_
+                        col = "Agglomerative_Cluster"
+                        df[col] = labels
+                    else:
+                        labels = m.fit_predict(scaled_pca)
+                        col = "Agglomerative_Cluster"
+                        df[col] = labels
+                except Exception:
+                    labels = None
+            elif algo == "DBSCAN" and models.get('dbscan_best') is not None:
+                m = models['dbscan_best']
+                try:
+                    if hasattr(m, "labels_") and len(getattr(m, "labels_", [])) == len(df):
+                        labels = m.labels_
+                        col = "DBSCAN_Cluster"
+                        df[col] = labels
+                    else:
+                        labels = m.fit_predict(scaled_pca)
+                        col = "DBSCAN_Cluster"
+                        df[col] = labels
+                except Exception:
+                    labels = None
+
+        # if still no labels, skip this algo
+        if labels is None:
+            st.warning(f"⚠️ Tidak menemukan label cluster untuk `{algo}` (csv tidak punya kolom & model tidak tersedia). Lewati {algo}.")
+            continue
+
+        # compute silhouette (handle DBSCAN special)
+        unique_labels = np.unique(labels)
+        n_clusters = len([l for l in unique_labels if l != -1]) if algo == "DBSCAN" else len(unique_labels)
+        sil = np.nan
+        try:
+            # silhouette requires at least 2 clusters (and not all -1)
+            if algo == "DBSCAN":
+                if n_clusters > 1:
+                    sil = silhouette_score(scaled_pca, labels)
+            else:
+                if len(unique_labels) > 1:
+                    sil = silhouette_score(scaled_pca, labels)
+        except Exception:
+            sil = np.nan
+
+        # append results (keep NaN if sil unavailable)
+        results.append({"Model": algo, "Silhouette Score": round(float(sil) if not np.isnan(sil) else np.nan, 3), "Jumlah Cluster": int(n_clusters)})
+
+        # summary aggregates (exclude noise -1 for DBSCAN)
+        if algo == "DBSCAN":
+            df_valid = df[df[col] != -1].copy()
+            if df_valid.empty:
+                summary = pd.DataFrame(columns=["Cluster", "Dominant_Category", "Dominant_Brand", "Total_Purchases", "Ratings", "Total_Amount", "Profitability_Index"])
+            else:
+                summary = (
+                    df_valid.groupby(col)
+                    .agg({
+                        'Product_Category': lambda x: x.mode().iloc[0] if not x.mode().empty else "",
+                        'Product_Brand': lambda x: x.mode().iloc[0] if not x.mode().empty else "",
+                        'Total_Purchases': 'mean',
+                        'Ratings': 'mean',
+                        'Total_Amount': 'mean',
+                        'Profitability_Index': 'mean'
+                    })
+                    .reset_index()
+                    .rename(columns={col: "Cluster", "Product_Category": "Dominant_Category", "Product_Brand": "Dominant_Brand"})
+                )
+        else:
+            summary = (
+                df.groupby(col)
+                .agg({
+                    'Product_Category': lambda x: x.mode().iloc[0] if not x.mode().empty else "",
+                    'Product_Brand': lambda x: x.mode().iloc[0] if not x.mode().empty else "",
+                    'Total_Purchases': 'mean',
+                    'Ratings': 'mean',
+                    'Total_Amount': 'mean',
+                    'Profitability_Index': 'mean'
+                })
+                .reset_index()
+                .rename(columns={col: "Cluster", "Product_Category": "Dominant_Category", "Product_Brand": "Dominant_Brand"})
+            )
+
+        summaries[algo] = summary
+
+        # Visualize PCA 2D for clarity (use computed scaled_pca)
+        vis = pd.DataFrame(scaled_pca[:, :2], columns=["PCA1", "PCA2"])
+        vis["Cluster"] = labels.astype(str)
+        visuals[algo] = px.scatter(vis, x="PCA1", y="PCA2", color="Cluster", title=f"PCA Visualization — {algo}", hover_data=[df.get('products')])
+
+    # --- Show comparison ---
+    if results:
+        compare_df = pd.DataFrame(results)
+        st.markdown("### 📈 Perbandingan Model Clustering")
+        st.dataframe(compare_df.style.background_gradient(cmap='YlGnBu', subset=["Silhouette Score"]) if "Silhouette Score" in compare_df.columns else compare_df, use_container_width=True)
+    else:
+        st.warning("⚠️ Tidak ada algoritma yang valid untuk ditampilkan.")
+
+    st.divider()
+
+    # --- Show visuals & summaries for each requested algo (in order) ---
+    for algo in algo_choice:
+        if algo in visuals:
+            st.markdown(f"## 🔍 {algo}")
+            st.plotly_chart(visuals[algo], use_container_width=True)
+            st.markdown(f"### Ringkasan Cluster — {algo}")
+            st.dataframe(summaries[algo].style.background_gradient(cmap="YlGnBu"), use_container_width=True)
+
+            # interpretation: simple heuristics per cluster
+            st.markdown("#### Interpretasi & Rekomendasi")
+            summary = summaries[algo]
+            if summary.empty:
+                st.write("Tidak ada cluster (atau semuanya noise).")
+            else:
+                overall = {
+                    "Total_Purchases": df["Total_Purchases"].mean(),
+                    "Profitability_Index": df["Profitability_Index"].mean(),
+                    "Ratings": df["Ratings"].mean(),
+                    "Total_Amount": df["Total_Amount"].mean()
+                }
+                for _, row in summary.iterrows():
+                    cl = row["Cluster"]
+                    tp = row["Total_Purchases"]
+                    pi = row["Profitability_Index"]
+                    rt = row["Ratings"]
+
+                    traits = []
+                    recs = []
+                    if tp >= overall["Total_Purchases"]:
+                        traits.append("penjualan tinggi")
+                        recs.append("pertahankan stok & program loyalitas")
+                    else:
+                        traits.append("penjualan rendah")
+                        recs.append("promosi & bundling")
+
+                    if pi >= overall["Profitability_Index"]:
+                        traits.append("profitabilitas tinggi")
+                        recs.append("pertahankan margin")
+                    else:
+                        traits.append("profitabilitas rendah")
+                        recs.append("evaluasi harga / biaya")
+
+                    if rt >= overall["Ratings"]:
+                        traits.append("rating pelanggan tinggi")
+                        recs.append("tingkatkan eksposur produk")
+                    else:
+                        traits.append("rating rendah")
+                        recs.append("perbaiki kualitas / deskripsi produk")
+
+                    st.markdown(f"- **Cluster {cl}** — karakter: {', '.join(traits)}. Rekomendasi: {', '.join(dict.fromkeys(recs))}.")
+
+    st.divider()
+
+    # -------------------------
+    # Product checker & recommendation (bottom)
+    # -------------------------
+    st.markdown("## 🔎 Cek Produk & Rekomendasi")
+    # Prepare product list
+    if 'products' in df.columns:
+        product_list = df['products'].dropna().unique().tolist()
+    else:
+        product_list = (df.get('Product_Brand', pd.Series(["unknown"])) + " – " + df.get('Product_Category', pd.Series(["unknown"]))).unique().tolist()
+
     selected_product = st.selectbox("Pilih Produk:", product_list)
 
-    product_data = sales_df[sales_df['Product_Name'] == selected_product]
-    fig = px.line(product_data, x='Date', y='Sales', title=f"📈 Tren Penjualan – {selected_product}",
-                  markers=True, line_shape='spline')
-    st.plotly_chart(fig, use_container_width=True)
+    if selected_product:
+        available_results = [r for r in results if r["Model"] in algo_choice]
+        if not available_results:
+            st.warning("Tidak ada model valid untuk rekomendasi.")
+        else:
+            if len(algo_choice) == 1:
+                pick_algo = algo_choice[0]
+            else:
+                # choose best silhouette (NaN considered lowest)
+                best = max(available_results, key=lambda x: (np.nan if np.isnan(x["Silhouette Score"]) else x["Silhouette Score"]))
+                pick_algo = best["Model"]
 
-# ==========================================================
-# 🧾 FOOTER
-# ==========================================================
+            pick_col = detect_cluster_col(df, pick_algo)
+            if pick_col is None:
+                st.warning(f"Tidak menemukan kolom label untuk model {pick_algo}.")
+            else:
+                if 'products' in df.columns:
+                    sel_row = df[df['products'] == selected_product]
+                else:
+                    sel_row = df[(df.get('Product_Brand', "") + " – " + df.get('Product_Category', "") ) == selected_product]
+
+                if sel_row.empty:
+                    st.warning("Produk tidak ditemukan di dataset clustering.")
+                else:
+                    cluster_label = sel_row[pick_col].iloc[0]
+                    st.success(f"Produk **{selected_product}** ada di **Cluster {cluster_label}** menurut model **{pick_algo}**.")
+
+                    if pick_algo in summaries and not summaries[pick_algo].empty:
+                        ssum = summaries[pick_algo]
+                        matched = ssum[ssum['Cluster'].astype(str) == str(cluster_label)]
+                        if not matched.empty:
+                            row = matched.iloc[0]
+                            rec_list = []
+                            if row['Total_Purchases'] >= df['Total_Purchases'].mean():
+                                rec_list.append("Pertahankan stok & program loyalitas")
+                            else:
+                                rec_list.append("Tingkatkan promosi & bundling")
+                            if row['Profitability_Index'] >= df['Profitability_Index'].mean():
+                                rec_list.append("Pertahankan margin & fokus cross-sell")
+                            else:
+                                rec_list.append("Evaluasi harga atau sourcing untuk tingkatkan margin")
+                            if row['Ratings'] >= df['Ratings'].mean():
+                                rec_list.append("Naikkan eksposur di channel berbayar & marketplace")
+                            else:
+                                rec_list.append("Perbaiki kualitas produk & deskripsi, kumpulkan ulasan")
+                            st.markdown("**Rekomendasi Bisnis:**")
+                            for r in rec_list:
+                                st.write(f"- {r}")
+                        else:
+                            st.info("Tidak ada ringkasan cluster untuk rekomendasi detil.")
+                    else:
+                        st.info("Ringkasan cluster tidak tersedia untuk model ini.")
+
+# -------------------------
+# Mode: Pergerakan Penjualan Produk
+# -------------------------
+else:
+    st.subheader("📈 Analisis Pergerakan Penjualan Produk (sample 20%)")
+    st.dataframe(sales_df.head(10), use_container_width=True)
+
+    # Tentukan kolom produk yang tersedia
+    product_col = None
+    for cand in ['Product_Name', 'products', 'Product_Type', 'Product_Brand']:
+        if cand in sales_df.columns:
+            product_col = cand
+            break
+
+    if product_col is None:
+        st.error("Tidak ditemukan kolom produk yang sesuai (misalnya 'Product_Name' atau 'products').")
+    else:
+        product_list = sales_df[product_col].dropna().unique().tolist()
+        sel = st.selectbox("Pilih Produk:", product_list)
+
+        if sel:
+            prod_df = sales_df[sales_df[product_col] == sel].copy()
+
+            if 'Date' in prod_df.columns:
+                prod_df['Date'] = pd.to_datetime(prod_df['Date'])
+
+                # Tentukan metrik penjualan
+                y_col = None
+                for cand in ['Total_Amount', 'Amount', 'Total_Purchases']:
+                    if cand in prod_df.columns:
+                        y_col = cand
+                        break
+
+                if y_col is None:
+                    st.error("Tidak ditemukan kolom metrik penjualan seperti 'Total_Amount', 'Amount', atau 'Total_Purchases'.")
+                else:
+                    # ==== 1️⃣ LINE CHART: TREN PENJUALAN ====
+                    prod_df['Month'] = prod_df['Date'].dt.to_period('M')
+                    monthly = prod_df.groupby('Month')[y_col].sum().reset_index()
+                    monthly['Month'] = monthly['Month'].astype(str)
+
+                    fig_line = px.line(
+                        monthly,
+                        x='Month', y=y_col,
+                        title=f"📈 Tren Penjualan Bulanan – {sel}",
+                        markers=True,
+                        line_shape='spline'
+                    )
+                    fig_line.update_layout(xaxis_title="Bulan", yaxis_title=y_col, template="plotly_white")
+                    st.plotly_chart(fig_line, use_container_width=True)
+
+                    # Insight sederhana tren
+                    if len(monthly) >= 2:
+                        diff = monthly[y_col].iloc[-1] - monthly[y_col].iloc[-2]
+                        if diff > 0:
+                            st.success(f"📊 Penjualan {sel} meningkat {diff:,.0f} dibanding bulan sebelumnya.")
+                        elif diff < 0:
+                            st.warning(f"📉 Penjualan {sel} menurun {abs(diff):,.0f} dibanding bulan sebelumnya.")
+                        else:
+                            st.info(f"➡️ Penjualan {sel} stabil dibanding bulan sebelumnya.")
+
+                    st.divider()
+
+                    # ==== 2️⃣ BAR CHART: TOTAL PENJUALAN PER KATEGORI ====
+                    if 'Product_Category' in sales_df.columns:
+                        cat_df = sales_df.groupby('Product_Category')[y_col].sum().reset_index().sort_values(y_col, ascending=False)
+                        fig_bar = px.bar(
+                            cat_df, x='Product_Category', y=y_col,
+                            title="🏷️ Total Penjualan per Kategori Produk",
+                            color=y_col, color_continuous_scale='Viridis'
+                        )
+                        fig_bar.update_layout(xaxis_title="Kategori", yaxis_title=y_col, template="plotly_white")
+                        st.plotly_chart(fig_bar, use_container_width=True)
+
+                    # ==== 3️⃣ HEATMAP: PENJUALAN PER BULAN & BRAND ====
+                    if 'Product_Brand' in sales_df.columns:
+                        sales_df['Date'] = pd.to_datetime(sales_df['Date'], errors='coerce')
+                        sales_df['Month'] = sales_df['Date'].dt.strftime('%b-%Y')
+                        heat = sales_df.groupby(['Month', 'Product_Brand'])[y_col].sum().reset_index()
+                        pivot_heat = heat.pivot(index='Product_Brand', columns='Month', values=y_col).fillna(0)
+                        fig_heat = px.imshow(
+                            pivot_heat,
+                            labels=dict(x="Bulan", y="Brand", color=y_col),
+                            title="🔥 Heatmap Penjualan per Brand & Bulan",
+                            color_continuous_scale="YlGnBu"
+                        )
+                        st.plotly_chart(fig_heat, use_container_width=True)
+
+                    # ==== 4️⃣ HISTOGRAM: DISTRIBUSI RATING PRODUK ====
+                    if 'Ratings' in sales_df.columns:
+                        fig_hist = px.histogram(
+                            sales_df, x='Ratings', nbins=20,
+                            title="⭐ Distribusi Rating Produk",
+                            color='Product_Category' if 'Product_Category' in sales_df.columns else None,
+                            marginal="box"
+                        )
+                        fig_hist.update_layout(template="plotly_white")
+                        st.plotly_chart(fig_hist, use_container_width=True)
+
+                    # ==== 5️⃣ INSIGHT SINGKAT ====
+                    top_cat = None
+                    if 'Product_Category' in sales_df.columns:
+                        top_cat = sales_df.groupby('Product_Category')[y_col].sum().idxmax()
+                    st.markdown("### 💡 Insight Otomatis:")
+                    st.write("- Produk dengan penjualan tertinggi secara keseluruhan:",
+                             f"**{top_cat}**" if top_cat else "Data tidak lengkap.")
+                    if 'Ratings' in sales_df.columns:
+                        avg_rating = sales_df['Ratings'].mean()
+                        st.write(f"- Rata-rata rating semua produk: **{avg_rating:.2f} / 5**")
+                    if 'City' in sales_df.columns:
+                        top_city = sales_df['City'].value_counts().idxmax()
+                        st.write(f"- Kota dengan transaksi terbanyak: **{top_city}**")
+            else:
+                st.error("Kolom 'Date' tidak ditemukan di sales_sampled.csv")
+
 st.markdown("---")
-st.markdown(
-    "<p style='text-align:center; color:gray;'>© 2025 Roy Sihombing | Final Project – Data Science</p>",
-    unsafe_allow_html=True
-)
+st.markdown("<p style='text-align:center; color:gray;'>© 2025 Roy Sihombing | Final Project – Data Science</p>", unsafe_allow_html=True)
