@@ -86,8 +86,10 @@ def detect_cluster_col(df, algo_name):
             return col
     return None
 
+# Updated numeric features to match notebook (7 features)
 numeric_features = [
     'Total_Purchases', 'Total_Amount', 'Ratings',
+    'Unique_Customers', 'Total_Transactions',
     'Avg_Amount_per_Purchase', 'Profitability_Index'
 ]
 
@@ -251,28 +253,28 @@ if mode == "📊 Segmentasi Produk":
                     df_valid.groupby(col)
                     .agg({
                         'Product_Category': lambda x: x.mode().iloc[0] if not x.mode().empty else "",
-                        'Product_Brand': lambda x: x.mode().iloc[0] if not x.mode().empty else "",
+                        'products': lambda x: x.mode().iloc[0] if not x.mode().empty else "",
                         'Total_Purchases': 'mean',
                         'Ratings': 'mean',
                         'Total_Amount': 'mean',
                         'Profitability_Index': 'mean'
                     })
                     .reset_index()
-                    .rename(columns={col: "Cluster", "Product_Category": "Dominant_Category", "Product_Brand": "Dominant_Brand"})
+                    .rename(columns={col: "Cluster", "Product_Category": "Dominant_Category", "products": "Dominant_Brand"})
                 )
         else:
             summary = (
                 df.groupby(col)
                 .agg({
                     'Product_Category': lambda x: x.mode().iloc[0] if not x.mode().empty else "",
-                    'Product_Brand': lambda x: x.mode().iloc[0] if not x.mode().empty else "",
+                    'products': lambda x: x.mode().iloc[0] if not x.mode().empty else "",
                     'Total_Purchases': 'mean',
                     'Ratings': 'mean',
                     'Total_Amount': 'mean',
                     'Profitability_Index': 'mean'
                 })
                 .reset_index()
-                .rename(columns={col: "Cluster", "Product_Category": "Dominant_Category", "Product_Brand": "Dominant_Brand"})
+                .rename(columns={col: "Cluster", "Product_Category": "Dominant_Category", "products": "Dominant_Brand"})
             )
 
         summaries[algo] = summary
@@ -345,7 +347,7 @@ if mode == "📊 Segmentasi Produk":
     if 'products' in df.columns:
         product_list = df['products'].dropna().unique().tolist()
     else:
-        product_list = (df.get('Product_Brand', pd.Series(["unknown"])) + " – " + df.get('Product_Category', pd.Series(["unknown"]))).unique().tolist()
+        product_list = (df.get('products', pd.Series(["unknown"])) + " – " + df.get('Product_Category', pd.Series(["unknown"]))).unique().tolist()
 
     selected_product = st.selectbox("Pilih Produk:", product_list)
 
@@ -367,7 +369,7 @@ if mode == "📊 Segmentasi Produk":
                 if 'products' in df.columns:
                     sel_row = df[df['products'] == selected_product]
                 else:
-                    sel_row = df[(df.get('Product_Brand', "") + " – " + df.get('Product_Category', "") ) == selected_product]
+                    sel_row = df[(df.get('products', "") + " – " + df.get('Product_Category', "") ) == selected_product]
 
                 if sel_row.empty:
                     st.warning("Produk tidak ditemukan di dataset clustering.")
@@ -406,7 +408,7 @@ else:
     st.dataframe(sales_df.head(10), use_container_width=True)
 
     product_col = None
-    for cand in ['Product_Name', 'products', 'Product_Type', 'Product_Brand']:
+    for cand in ['Product_Name', 'products', 'Product_Type', 'products']:
         if cand in sales_df.columns:
             product_col = cand
             break
@@ -466,11 +468,11 @@ else:
                         fig_bar.update_layout(xaxis_title="Kategori", yaxis_title=y_col, template="plotly_white")
                         st.plotly_chart(fig_bar, use_container_width=True)
 
-                    if 'Product_Brand' in sales_df.columns:
+                    if 'products' in sales_df.columns:
                         sales_df['Date'] = pd.to_datetime(sales_df['Date'], errors='coerce')
                         sales_df['Month'] = sales_df['Date'].dt.strftime('%b-%Y')
-                        heat = sales_df.groupby(['Month', 'Product_Brand'])[y_col].sum().reset_index()
-                        pivot_heat = heat.pivot(index='Product_Brand', columns='Month', values=y_col).fillna(0)
+                        heat = sales_df.groupby(['Month', 'products'])[y_col].sum().reset_index()
+                        pivot_heat = heat.pivot(index='products', columns='Month', values=y_col).fillna(0)
                         fig_heat = px.imshow(
                             pivot_heat,
                             labels=dict(x="Bulan", y="Brand", color=y_col),
