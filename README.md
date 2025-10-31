@@ -7,7 +7,7 @@
 ## 🧠 Deskripsi Proyek
 
 Proyek ini merupakan **Final Project Data Science** yang berfokus pada **segmentasi produk menggunakan metode unsupervised learning (clustering)**.  
-Tujuan utama analisis ini adalah mengelompokkan produk berdasarkan pola penjualan, profitabilitas, dan rating pelanggan untuk membantu pengambilan keputusan strategis dalam manajemen stok dan pemasaran.
+Tujuan utamanya adalah mengelompokkan produk berdasarkan pola penjualan, profitabilitas, dan rating pelanggan untuk mendukung pengambilan keputusan strategis dalam manajemen stok dan pemasaran.
 
 Metode clustering yang digunakan:
 - **K-Means Clustering**
@@ -20,7 +20,7 @@ Aplikasi interaktif dibangun menggunakan **Streamlit**, sedangkan proses analisi
 
 ## 🚀 Akses Aplikasi Streamlit
 
-Klik logo di bawah untuk mencoba dashboard interaktif:
+Klik logo di bawah ini untuk mencoba dashboard interaktif:
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://finpro-roy.streamlit.app/)
 
@@ -29,16 +29,18 @@ Klik logo di bawah untuk mencoba dashboard interaktif:
 ## ⚙️ Fitur Utama
 
 - 📈 Segmentasi produk otomatis berdasarkan data penjualan dan performa  
-- 🔍 Perbandingan 3 algoritma clustering: *K-Means*, *Agglomerative*, dan *DBSCAN*  
+- 🔍 Perbandingan tiga algoritma clustering: *K-Means*, *Agglomerative*, dan *DBSCAN*  
 - 📊 Visualisasi PCA untuk melihat distribusi tiap cluster  
 - 💬 Interpretasi karakteristik tiap segmen produk  
-- 🧮 Dashboard analitik interaktif dengan visual dinamis  
+- 🧮 Dashboard analitik interaktif berbasis **Streamlit**  
 
 ---
 
 ## 🧩 Perbandingan Model Clustering
 
-![Perbandingan Model](https://github.com/Roysihombing/Final-Project-Data-Science/blob/main/images/Perbandingan-Segment.png)
+<p align="center">
+  <img src="https://github.com/Roysihombing/Final-Project-Data-Science/blob/main/images/Perbandingan-Segment.png" alt="Perbandingan Model Clustering" width="800px"/>
+</p>
 
 > Berdasarkan evaluasi **Silhouette Score**, model **Agglomerative Clustering** memberikan hasil paling stabil dan interpretatif dibandingkan K-Means dan DBSCAN.
 
@@ -46,7 +48,9 @@ Klik logo di bawah untuk mencoba dashboard interaktif:
 
 ## 🔍 Visualisasi PCA – Agglomerative Clustering
 
-![Visualisasi PCA Agglomerative](https://github.com/Roysihombing/Final-Project-Data-Science/blob/main/images/Visual-Agglo.png)
+<p align="center">
+  <img src="https://github.com/Roysihombing/Final-Project-Data-Science/blob/main/images/Visual-Agglo.png" alt="Visualisasi PCA Agglomerative" width="700px"/>
+</p>
 
 Visualisasi di atas menunjukkan distribusi produk hasil reduksi dimensi menggunakan PCA (2 komponen utama).  
 Setiap warna merepresentasikan kelompok produk hasil **Hierarchical Agglomerative Clustering**.
@@ -78,17 +82,17 @@ Setiap warna merepresentasikan kelompok produk hasil **Hierarchical Agglomerativ
 Hasil analisis menunjukkan bahwa:
 - **Agglomerative Clustering** menghasilkan segmentasi paling representatif dengan 3 kelompok utama.
 - Produk dengan performa tinggi (Cluster 0) layak diprioritaskan untuk distribusi dan promosi berkelanjutan.
-- Produk dengan loyalitas pelanggan tinggi (Cluster 1) dapat dijadikan fokus branding jangka panjang.
-- Produk berperforma rendah (Cluster 2) perlu strategi diskon, promo, atau perbaikan kualitas.
+- Produk dengan loyalitas pelanggan tinggi (Cluster 1) menjadi basis penguatan brand.
+- Produk berperforma rendah (Cluster 2) memerlukan pendekatan promosi dan evaluasi harga.
 
-Insight ini membantu perusahaan menentukan **strategi stok, pricing, dan marketing** secara lebih efektif berdasarkan data objektif.
+Insight ini membantu perusahaan menentukan **strategi stok, pricing, dan marketing** secara lebih efektif berdasarkan hasil analisis data.
 
 ---
 
 ## 📓 Notebook Analisis
 
-Notebook lengkap mencakup proses eksplorasi data, pemodelan, evaluasi, dan interpretasi hasil:  
-📘 [`Fiks_Final_Project_DS.ipynb`](./Fiks_Final_Project_DS.ipynb)
+Notebook lengkap mencakup eksplorasi data, pemodelan, evaluasi, dan interpretasi hasil:  
+📘 [`Fiks_Final_Project_DS.ipynb`](./Final_Project_DS_Roy.ipynb)
 
 ---
 
@@ -109,7 +113,7 @@ Notebook lengkap mencakup proses eksplorasi data, pemodelan, evaluasi, dan inter
 1. **Persiapan Dataset** – Import dan pembersihan data  
 2. **Feature Engineering** – Pembentukan metrik performa (penjualan, profit, rating)  
 3. **Standarisasi & PCA** – Reduksi dimensi untuk meningkatkan hasil clustering  
-4. **Clustering Modeling** – Menggunakan K-Means, Agglomerative, dan DBSCAN  
+4. **Clustering Modeling** – K-Means, Agglomerative, dan DBSCAN  
 5. **Evaluasi Model** – Menggunakan *Silhouette Score*  
 6. **Interpretasi & Visualisasi** – Analisis cluster dan insight bisnis  
 7. **Deployment** – Dashboard analitik di Streamlit  
@@ -125,5 +129,6 @@ cd Final-Project-Data-Science
 
 # Install dependencies
 pip install -r requirements.txt
+
 # Jalankan aplikasi
 streamlit run app.py
