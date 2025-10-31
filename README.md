@@ -1,4 +1,4 @@
-# 📊 Product Segmentation & Sales Analytics Dashboard
+# 🧩 PRODUCT SEGMENTATION ANALYSIS USING CLUSTERING
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://finpro-roy.streamlit.app/)
 
@@ -6,20 +6,21 @@
 
 ## 🧠 Deskripsi Proyek
 
-Proyek ini merupakan **Final Project Data Science** yang bertujuan melakukan **segmentasi produk dan analisis penjualan** menggunakan beberapa metode *unsupervised learning* (clustering):
+Proyek ini merupakan **Final Project Data Science** yang berfokus pada **segmentasi produk menggunakan metode unsupervised learning (clustering)**.  
+Tujuan utama analisis ini adalah mengelompokkan produk berdasarkan pola penjualan, profitabilitas, dan rating pelanggan untuk membantu pengambilan keputusan strategis dalam manajemen stok dan pemasaran.
 
-- **K-Means**
+Metode clustering yang digunakan:
+- **K-Means Clustering**
 - **Agglomerative (Hierarchical) Clustering**
 - **DBSCAN**
 
-Analisis ini membantu memahami pola performa produk, preferensi pelanggan, dan profitabilitas untuk mendukung keputusan bisnis berbasis data.  
-Aplikasi interaktif dibangun menggunakan **Streamlit**.
+Aplikasi interaktif dibangun menggunakan **Streamlit**, sedangkan proses analisis dilakukan dengan **Python (Jupyter Notebook)**.
 
 ---
 
 ## 🚀 Akses Aplikasi Streamlit
 
-Klik logo di bawah untuk membuka versi interaktif:
+Klik logo di bawah untuk mencoba dashboard interaktif:
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://finpro-roy.streamlit.app/)
 
@@ -27,11 +28,11 @@ Klik logo di bawah untuk membuka versi interaktif:
 
 ## ⚙️ Fitur Utama
 
-- 📈 **Segmentasi Produk Otomatis** berdasarkan data pembelian dan performa
-- 🔍 **Perbandingan 3 Algoritma Clustering** (K-Means, Agglomerative, DBSCAN)
-- 📊 **Visualisasi PCA** untuk melihat distribusi tiap cluster
-- 💬 **Interpretasi dan Insight Bisnis** untuk tiap segmen
-- 🧮 **Dashboard Interaktif** yang menampilkan tren penjualan, rating, dan profitabilitas
+- 📈 Segmentasi produk otomatis berdasarkan data penjualan dan performa  
+- 🔍 Perbandingan 3 algoritma clustering: *K-Means*, *Agglomerative*, dan *DBSCAN*  
+- 📊 Visualisasi PCA untuk melihat distribusi tiap cluster  
+- 💬 Interpretasi karakteristik tiap segmen produk  
+- 🧮 Dashboard analitik interaktif dengan visual dinamis  
 
 ---
 
@@ -47,8 +48,8 @@ Klik logo di bawah untuk membuka versi interaktif:
 
 ![Visualisasi PCA Agglomerative](https://github.com/Roysihombing/Final-Project-Data-Science/blob/main/images/Visual-Agglo.png)
 
-Visualisasi PCA menampilkan distribusi tiap produk berdasarkan dua komponen utama hasil reduksi dimensi.  
-Setiap warna menunjukkan kelompok hasil **Hierarchical Agglomerative Clustering**.
+Visualisasi di atas menunjukkan distribusi produk hasil reduksi dimensi menggunakan PCA (2 komponen utama).  
+Setiap warna merepresentasikan kelompok produk hasil **Hierarchical Agglomerative Clustering**.
 
 ---
 
@@ -66,16 +67,28 @@ Setiap warna menunjukkan kelompok hasil **Hierarchical Agglomerative Clustering*
 
 | Cluster | Kategori & Brand Dominan | Karakteristik Produk | Implikasi Bisnis | Nama Segmen |
 |:--------|:-------------------------|:--------------------|:-----------------|:-------------|
-| **Cluster 0** | Books – Adidas | Volume penjualan dan profit tertinggi. Rating stabil menunjukkan popularitas tinggi. | Pertahankan stok dan promosi agar stabilitas tetap terjaga. | 🔵 **High-Performer Segment** |
-| **Cluster 1** | Electronics – BlueStar | Rating tinggi dengan volume menengah. Menunjukkan loyalitas pelanggan. | Fokus pada kualitas dan ulasan positif. | 🟣 **Trusted Mid-Tier Electronics** |
-| **Cluster 2** | Electronics – Pepsi | Volume dan profit rendah, pelanggan terbatas. | Perlu promosi atau inovasi harga untuk meningkatkan daya saing. | 🟠 **Low-Tier Electronics** |
+| **Cluster 0** | Books – Adidas | Volume penjualan dan profit tertinggi. Rating stabil menunjukkan popularitas tinggi. | Pertahankan stok dan promosi untuk menjaga stabilitas penjualan. | 🔵 **High-Performer Segment** |
+| **Cluster 1** | Electronics – BlueStar | Rating tertinggi dengan volume menengah. Pelanggan loyal dengan kepuasan tinggi. | Jaga kualitas dan gunakan ulasan positif untuk memperkuat branding. | 🟣 **Trusted Mid-Tier Electronics** |
+| **Cluster 2** | Electronics – Pepsi | Penjualan dan profit rendah, pelanggan terbatas. | Perlu strategi promosi atau evaluasi harga agar lebih kompetitif. | 🟠 **Low-Tier Electronics** |
+
+---
+
+## 🧩 Kesimpulan
+
+Hasil analisis menunjukkan bahwa:
+- **Agglomerative Clustering** menghasilkan segmentasi paling representatif dengan 3 kelompok utama.
+- Produk dengan performa tinggi (Cluster 0) layak diprioritaskan untuk distribusi dan promosi berkelanjutan.
+- Produk dengan loyalitas pelanggan tinggi (Cluster 1) dapat dijadikan fokus branding jangka panjang.
+- Produk berperforma rendah (Cluster 2) perlu strategi diskon, promo, atau perbaikan kualitas.
+
+Insight ini membantu perusahaan menentukan **strategi stok, pricing, dan marketing** secara lebih efektif berdasarkan data objektif.
 
 ---
 
 ## 📓 Notebook Analisis
 
-Notebook lengkap proses eksplorasi data, pemodelan, evaluasi, dan interpretasi tersedia di:  
-📘 [`Fiks_Final_Project_DS.ipynb`](./Final_Project_DS-Roy.ipynb)
+Notebook lengkap mencakup proses eksplorasi data, pemodelan, evaluasi, dan interpretasi hasil:  
+📘 [`Fiks_Final_Project_DS.ipynb`](./Fiks_Final_Project_DS.ipynb)
 
 ---
 
@@ -93,13 +106,13 @@ Notebook lengkap proses eksplorasi data, pemodelan, evaluasi, dan interpretasi t
 
 ## 📈 Tahapan Analisis Data
 
-1. **Persiapan Dataset** – Import, pembersihan, dan penggabungan data produk & penjualan  
-2. **Feature Engineering** – Membentuk metrik seperti total pembelian, profit, rating rata-rata  
-3. **Standarisasi & PCA** – Reduksi dimensi agar clustering lebih optimal  
-4. **Clustering Modeling** – K-Means, Agglomerative, dan DBSCAN  
-5. **Evaluasi & Visualisasi** – Menggunakan *Silhouette Score* dan PCA plot  
-6. **Interpretasi Bisnis** – Menentukan insight dan strategi per cluster  
-7. **Deployment Streamlit** – Dashboard analitik interaktif  
+1. **Persiapan Dataset** – Import dan pembersihan data  
+2. **Feature Engineering** – Pembentukan metrik performa (penjualan, profit, rating)  
+3. **Standarisasi & PCA** – Reduksi dimensi untuk meningkatkan hasil clustering  
+4. **Clustering Modeling** – Menggunakan K-Means, Agglomerative, dan DBSCAN  
+5. **Evaluasi Model** – Menggunakan *Silhouette Score*  
+6. **Interpretasi & Visualisasi** – Analisis cluster dan insight bisnis  
+7. **Deployment** – Dashboard analitik di Streamlit  
 
 ---
 
@@ -112,6 +125,5 @@ cd Final-Project-Data-Science
 
 # Install dependencies
 pip install -r requirements.txt
-
 # Jalankan aplikasi
 streamlit run app.py
