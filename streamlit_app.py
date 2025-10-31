@@ -1,9 +1,3 @@
-# streamlit_app.py
-# ==========================================================
-# Product Segmentation & Sales Analytics Dashboard
-# Uses dataset from GitHub raw CSV and models from GitHub raw (.pkl)
-# ==========================================================
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -19,13 +13,9 @@ st.title("📊 Product Segmentation & Sales Analytics Dashboard")
 st.caption("Segmentasi produk (KMeans / Agglomerative / DBSCAN) + analisa pergerakan penjualan")
 st.divider()
 
-# -------------------------
-# Config: URLs & local model folder (models will be loaded from GitHub raw)
-# -------------------------
 PRODUCT_URL = "https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/dataset/product_clustered.csv"
 SALES_URL = "https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/dataset/sales_sampled.csv"
 
-# GitHub raw URLs for models (provided by you)
 MODEL_RAW = {
     "scaler":  "https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/models/scaler.pkl",
     "pca_stage1":"https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/models/pca_stage1.pkl",
@@ -35,18 +25,13 @@ MODEL_RAW = {
     "dbscan_best":"https://raw.githubusercontent.com/Roysihombing/Final-Project-Data-Science/main/models/dbscan_best.pkl"
 }
 
-# -------------------------
 # Load CSVs from GitHub raw
-# -------------------------
 @st.cache_data(show_spinner=False)
 def load_csvs():
     df = pd.read_csv(PRODUCT_URL)
     sales_df = pd.read_csv(SALES_URL)
     return df, sales_df
 
-# -------------------------
-# Load models from GitHub raw (download to temp files then joblib.load)
-# -------------------------
 @st.cache_resource(show_spinner=False)
 def load_models_from_github(model_raw_map):
     models = {}
@@ -54,7 +39,6 @@ def load_models_from_github(model_raw_map):
         try:
             r = requests.get(url, timeout=20)
             if r.status_code == 200 and r.content:
-                # write to temp file and load
                 with tempfile.NamedTemporaryFile(delete=False) as tmp:
                     tmp.write(r.content)
                     tmp_path = tmp.name
@@ -65,9 +49,6 @@ def load_models_from_github(model_raw_map):
             models[key] = None
     return models
 
-# -------------------------
-# Try load data & models
-# -------------------------
 try:
     df, sales_df = load_csvs()
 except Exception as e:
@@ -77,14 +58,6 @@ except Exception as e:
 models = load_models_from_github(MODEL_RAW)
 models_available = any(v is not None for v in models.values())
 
-if models_available:
-    st.info("✅ Models berhasil dimuat dari GitHub (raw).")
-else:
-    st.info("ℹ️ Models gagal dimuat dari GitHub. Dashboard akan mengutamakan label yang tersimpan di CSV.")
-
-# -------------------------
-# Sidebar: mode & filters
-# -------------------------
 st.sidebar.header("⚙️ Pilihan Analisis")
 mode = st.sidebar.radio("Pilih Mode Analisis:", ("📊 Segmentasi Produk", "📈 Pergerakan Penjualan"))
 
@@ -99,9 +72,6 @@ if mode == "📊 Segmentasi Produk":
 else:
     algo_choice = []
 
-# -------------------------
-# Helpers: detect cluster columns in df
-# -------------------------
 def detect_cluster_col(df, algo_name):
     patterns = {
         "K-Means": ["K-Means_Cluster", "KMeans_Cluster", "KMeans", "K-Means"],
@@ -116,27 +86,16 @@ def detect_cluster_col(df, algo_name):
             return col
     return None
 
-# -------------------------
-# Numeric features used for PCA/scaling (kept as kamu definisikan)
-# -------------------------
 numeric_features = [
     'Total_Purchases', 'Total_Amount', 'Ratings',
     'Avg_Amount_per_Purchase', 'Profitability_Index'
 ]
 
-# Validate numeric features exist
 for c in numeric_features:
     if c not in df.columns:
         st.error(f"Kolom numerik `{c}` tidak ditemukan di product_clustered.csv — periksa dataset.")
         st.stop()
 
-# -------------------------
-# compute scaled & PCA representations (use saved scaler/pca if available)
-# This part now handles feature-name mismatch:
-# - If scaler has feature_names_in_ -> use those columns (fill missing with 0)
-# - Else if scaler.n_features_in_ matches numeric_features length -> use numeric_features
-# - Else fallback: fit a new scaler+pca locally (warn)
-# -------------------------
 def compute_scaled_pca_safe(df, numeric_features, models):
     X_num_df = df.copy()
     X_num = df[numeric_features]  # DataFrame of numeric base features
@@ -145,14 +104,11 @@ def compute_scaled_pca_safe(df, numeric_features, models):
     pca1 = models.get('pca_stage1', None)
     pca2 = models.get('pca_stage2', None)
 
-    # If scaler present and has feature names info, use them
     if scaler is not None:
-        # try get feature names used when scaler was fitted
         feature_names = getattr(scaler, "feature_names_in_", None)
         n_features_in = getattr(scaler, "n_features_in_", None)
 
         if feature_names is not None:
-            # ensure all feature_names present in df; if missing -> fill 0
             missing = [c for c in feature_names if c not in df.columns]
             if missing:
                 for m in missing:
@@ -162,9 +118,8 @@ def compute_scaled_pca_safe(df, numeric_features, models):
                 Xs = scaler.transform(X_for_scaler)
             except Exception as e:
                 st.warning(f"⚠️ Gagal transform dengan scaler (feature_names_in_ path): {e}. Akan fallback ke fit scaler lokal.")
-                scaler = None  # force fallback
+                scaler = None
         elif n_features_in is not None:
-            # if scaler expects same number of features as our numeric_features, use them
             if n_features_in == X_num.shape[1]:
                 try:
                     Xs = scaler.transform(X_num.values.astype(float))
@@ -172,15 +127,11 @@ def compute_scaled_pca_safe(df, numeric_features, models):
                     st.warning(f"⚠️ Gagal transform dengan scaler (n_features match): {e}. Akan fallback ke fit scaler lokal.")
                     scaler = None
             else:
-                # scaler expects different count -> try to create zero columns to match n_features_in
                 st.warning("⚠️ Scaler expects different number of features than `numeric_features`. "
                            "Attempting to create placeholder columns to match scaler's expected input.")
-                # if scaler has attribute 'n_features_in_', create dummy columns named feat_0.. to feed it
                 try:
                     needed = int(n_features_in)
-                    # existing columns
                     cols = list(X_num.columns)
-                    # add placeholder columns with zeros
                     idx = 0
                     while len(cols) < needed:
                         cand = f"__placeholder_{idx}"
@@ -194,10 +145,8 @@ def compute_scaled_pca_safe(df, numeric_features, models):
                     st.warning(f"⚠️ Gagal menyesuaikan input untuk scaler: {e}. Akan fallback ke fit scaler lokal.")
                     scaler = None
         else:
-            # no feature info available -> fallback
             scaler = None
 
-    # If scaler or pcas unavailable or fallback triggered, fit locally (warning)
     if scaler is None or pca1 is None or pca2 is None:
         st.warning("⚠️ Menggunakan fallback: scaler/PCA lokal dibuat ulang. Hasil clustering bisa berbeda dari Colab jika model asli tidak tersedia.")
         from sklearn.preprocessing import StandardScaler
@@ -209,8 +158,6 @@ def compute_scaled_pca_safe(df, numeric_features, models):
         p2_local = PCA(n_components=3, random_state=42)
         s2 = p2_local.fit_transform(s1)
         return s2
-
-    # If we have Xs and pcas from models, apply them
     try:
         s1 = pca1.transform(Xs)
         s2 = pca2.transform(s1)
@@ -226,29 +173,22 @@ def compute_scaled_pca_safe(df, numeric_features, models):
 
 scaled_pca = compute_scaled_pca_safe(df, numeric_features, models)
 
-# -------------------------
-# Main: Segmentasi Produk
-# -------------------------
 if mode == "📊 Segmentasi Produk":
     st.subheader("📦 Dataset Produk (sample)")
     st.dataframe(df.head(10), use_container_width=True)
     st.write(f"Jumlah data: **{df.shape[0]} baris**, **{df.shape[1]} kolom**")
     st.divider()
 
-    results = []      # list of dicts for comparison table
-    summaries = {}    # per algorithm summary df
-    visuals = {}      # per algorithm plotly figure
+    results = []    
+    summaries = {} 
+    visuals = {}    
 
-    # For each selected algorithm, find cluster column in df (prefer CSV labels). If not found, try to use saved model.
     for algo in algo_choice:
         col = detect_cluster_col(df, algo)
         labels = None
-
-        # If CSV already contains cluster labels, use them (preferred)
         if col is not None and col in df.columns:
             labels = df[col].values
         else:
-            # try using saved model to produce labels (only if model exists)
             if algo == "K-Means" and models.get('kmeans') is not None:
                 try:
                     labels = models['kmeans'].predict(scaled_pca)
@@ -283,17 +223,13 @@ if mode == "📊 Segmentasi Produk":
                 except Exception:
                     labels = None
 
-        # if still no labels, skip this algo
         if labels is None:
             st.warning(f"⚠️ Tidak menemukan label cluster untuk `{algo}` (csv tidak punya kolom & model tidak tersedia). Lewati {algo}.")
             continue
 
-        # compute silhouette (handle DBSCAN special)
         unique_labels = np.unique(labels)
         n_clusters = len([l for l in unique_labels if l != -1]) if algo == "DBSCAN" else len(unique_labels)
         sil = np.nan
-        try:
-            # silhouette requires at least 2 clusters (and not all -1)
             if algo == "DBSCAN":
                 if n_clusters > 1:
                     sil = silhouette_score(scaled_pca, labels)
@@ -303,10 +239,8 @@ if mode == "📊 Segmentasi Produk":
         except Exception:
             sil = np.nan
 
-        # append results (keep NaN if sil unavailable)
         results.append({"Model": algo, "Silhouette Score": round(float(sil) if not np.isnan(sil) else np.nan, 3), "Jumlah Cluster": int(n_clusters)})
 
-        # summary aggregates (exclude noise -1 for DBSCAN)
         if algo == "DBSCAN":
             df_valid = df[df[col] != -1].copy()
             if df_valid.empty:
@@ -342,12 +276,10 @@ if mode == "📊 Segmentasi Produk":
 
         summaries[algo] = summary
 
-        # Visualize PCA 2D for clarity (use computed scaled_pca)
         vis = pd.DataFrame(scaled_pca[:, :2], columns=["PCA1", "PCA2"])
         vis["Cluster"] = labels.astype(str)
         visuals[algo] = px.scatter(vis, x="PCA1", y="PCA2", color="Cluster", title=f"PCA Visualization — {algo}", hover_data=[df.get('products')])
 
-    # --- Show comparison ---
     if results:
         compare_df = pd.DataFrame(results)
         st.markdown("### 📈 Perbandingan Model Clustering")
@@ -357,7 +289,6 @@ if mode == "📊 Segmentasi Produk":
 
     st.divider()
 
-    # --- Show visuals & summaries for each requested algo (in order) ---
     for algo in algo_choice:
         if algo in visuals:
             st.markdown(f"## 🔍 {algo}")
@@ -365,7 +296,6 @@ if mode == "📊 Segmentasi Produk":
             st.markdown(f"### Ringkasan Cluster — {algo}")
             st.dataframe(summaries[algo].style.background_gradient(cmap="YlGnBu"), use_container_width=True)
 
-            # interpretation: simple heuristics per cluster
             st.markdown("#### Interpretasi & Rekomendasi")
             summary = summaries[algo]
             if summary.empty:
@@ -410,11 +340,7 @@ if mode == "📊 Segmentasi Produk":
 
     st.divider()
 
-    # -------------------------
-    # Product checker & recommendation (bottom)
-    # -------------------------
     st.markdown("## 🔎 Cek Produk & Rekomendasi")
-    # Prepare product list
     if 'products' in df.columns:
         product_list = df['products'].dropna().unique().tolist()
     else:
@@ -430,7 +356,6 @@ if mode == "📊 Segmentasi Produk":
             if len(algo_choice) == 1:
                 pick_algo = algo_choice[0]
             else:
-                # choose best silhouette (NaN considered lowest)
                 best = max(available_results, key=lambda x: (np.nan if np.isnan(x["Silhouette Score"]) else x["Silhouette Score"]))
                 pick_algo = best["Model"]
 
@@ -475,14 +400,10 @@ if mode == "📊 Segmentasi Produk":
                     else:
                         st.info("Ringkasan cluster tidak tersedia untuk model ini.")
 
-# -------------------------
-# Mode: Pergerakan Penjualan Produk
-# -------------------------
 else:
     st.subheader("📈 Analisis Pergerakan Penjualan Produk (sample 20%)")
     st.dataframe(sales_df.head(10), use_container_width=True)
 
-    # Tentukan kolom produk yang tersedia
     product_col = None
     for cand in ['Product_Name', 'products', 'Product_Type', 'Product_Brand']:
         if cand in sales_df.columns:
@@ -501,7 +422,6 @@ else:
             if 'Date' in prod_df.columns:
                 prod_df['Date'] = pd.to_datetime(prod_df['Date'])
 
-                # Tentukan metrik penjualan
                 y_col = None
                 for cand in ['Total_Amount', 'Amount', 'Total_Purchases']:
                     if cand in prod_df.columns:
@@ -511,7 +431,6 @@ else:
                 if y_col is None:
                     st.error("Tidak ditemukan kolom metrik penjualan seperti 'Total_Amount', 'Amount', atau 'Total_Purchases'.")
                 else:
-                    # ==== 1️⃣ LINE CHART: TREN PENJUALAN ====
                     prod_df['Month'] = prod_df['Date'].dt.to_period('M')
                     monthly = prod_df.groupby('Month')[y_col].sum().reset_index()
                     monthly['Month'] = monthly['Month'].astype(str)
@@ -526,7 +445,6 @@ else:
                     fig_line.update_layout(xaxis_title="Bulan", yaxis_title=y_col, template="plotly_white")
                     st.plotly_chart(fig_line, use_container_width=True)
 
-                    # Insight sederhana tren
                     if len(monthly) >= 2:
                         diff = monthly[y_col].iloc[-1] - monthly[y_col].iloc[-2]
                         if diff > 0:
@@ -537,8 +455,6 @@ else:
                             st.info(f"➡️ Penjualan {sel} stabil dibanding bulan sebelumnya.")
 
                     st.divider()
-
-                    # ==== 2️⃣ BAR CHART: TOTAL PENJUALAN PER KATEGORI ====
                     if 'Product_Category' in sales_df.columns:
                         cat_df = sales_df.groupby('Product_Category')[y_col].sum().reset_index().sort_values(y_col, ascending=False)
                         fig_bar = px.bar(
@@ -549,7 +465,6 @@ else:
                         fig_bar.update_layout(xaxis_title="Kategori", yaxis_title=y_col, template="plotly_white")
                         st.plotly_chart(fig_bar, use_container_width=True)
 
-                    # ==== 3️⃣ HEATMAP: PENJUALAN PER BULAN & BRAND ====
                     if 'Product_Brand' in sales_df.columns:
                         sales_df['Date'] = pd.to_datetime(sales_df['Date'], errors='coerce')
                         sales_df['Month'] = sales_df['Date'].dt.strftime('%b-%Y')
@@ -563,7 +478,6 @@ else:
                         )
                         st.plotly_chart(fig_heat, use_container_width=True)
 
-                    # ==== 4️⃣ HISTOGRAM: DISTRIBUSI RATING PRODUK ====
                     if 'Ratings' in sales_df.columns:
                         fig_hist = px.histogram(
                             sales_df, x='Ratings', nbins=20,
@@ -574,7 +488,6 @@ else:
                         fig_hist.update_layout(template="plotly_white")
                         st.plotly_chart(fig_hist, use_container_width=True)
 
-                    # ==== 5️⃣ INSIGHT SINGKAT ====
                     top_cat = None
                     if 'Product_Category' in sales_df.columns:
                         top_cat = sales_df.groupby('Product_Category')[y_col].sum().idxmax()
