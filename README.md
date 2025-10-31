@@ -39,7 +39,7 @@ Klik logo di bawah ini untuk mencoba dashboard interaktif:
 ## 🧩 Perbandingan Model Clustering
 
 <p align="center">
-  <img src="https://github.com/Roysihombing/Final-Project-Data-Science/blob/main/images/Perbandingan-Segment.png" alt="Perbandingan Model Clustering" width="800px"/>
+  <img src="https://github.com/Roysihombing/Final-Project-Data-Science/blob/main/images/Perbandingan-Segment.png" alt="Perbandingan Model Clustering" width="400px"/>
 </p>
 
 > Berdasarkan evaluasi **Silhouette Score**, model **Agglomerative Clustering** memberikan hasil paling stabil dan interpretatif dibandingkan K-Means dan DBSCAN.
