@@ -230,6 +230,7 @@ if mode == "📊 Segmentasi Produk":
         unique_labels = np.unique(labels)
         n_clusters = len([l for l in unique_labels if l != -1]) if algo == "DBSCAN" else len(unique_labels)
         sil = np.nan
+        try:
             if algo == "DBSCAN":
                 if n_clusters > 1:
                     sil = silhouette_score(scaled_pca, labels)
