@@ -7,14 +7,14 @@
 ## 🧠 Deskripsi Proyek
 
 Proyek ini merupakan **Final Project Data Science** yang berfokus pada **segmentasi produk menggunakan metode unsupervised learning (clustering)**.  
-Tujuan utamanya adalah mengelompokkan produk berdasarkan pola penjualan, profitabilitas, dan rating pelanggan untuk mendukung pengambilan keputusan strategis dalam manajemen stok dan pemasaran.
+Tujuannya adalah mengelompokkan produk berdasarkan **pola penjualan, profitabilitas, dan rating pelanggan** untuk membantu pengambilan keputusan strategis dalam **manajemen stok dan pemasaran**.
 
 Metode clustering yang digunakan:
 - **K-Means Clustering**
 - **Agglomerative (Hierarchical) Clustering**
 - **DBSCAN**
 
-Aplikasi interaktif dibangun menggunakan **Streamlit**, sedangkan proses analisis dilakukan dengan **Python (Jupyter Notebook)**.
+Aplikasi interaktif dibangun menggunakan **Streamlit**, sementara proses analisis dilakukan dengan **Python (Jupyter Notebook)**.
 
 ---
 
@@ -38,11 +38,13 @@ Klik logo di bawah ini untuk mencoba dashboard interaktif:
 
 ## 🧩 Perbandingan Model Clustering
 
-<p align="center">
-  <img src="https://github.com/Roysihombing/Final-Project-Data-Science/blob/main/images/Perbandingan-Segment.png" alt="Perbandingan Model Clustering" width="400px"/>
-</p>
+| Model | Silhouette Score | Jumlah Cluster | Catatan |
+|:------|:----------------:|:---------------:|:--------|
+| **K-Means** | 0.600 | 5 | Cukup baik, namun beberapa produk tumpang tindih antar cluster |
+| **Agglomerative** | **0.658** | **9** | Hasil paling stabil dan interpretatif |
+| **DBSCAN** | 0.620 | 9 | Konsisten dengan Agglomerative dan mampu deteksi outlier |
 
-> Berdasarkan evaluasi **Silhouette Score**, model **Agglomerative Clustering** memberikan hasil paling stabil dan interpretatif dibandingkan K-Means dan DBSCAN.
+> Berdasarkan evaluasi **Silhouette Score**, model **Agglomerative Clustering** memberikan hasil paling representatif dan stabil dibandingkan model lainnya.
 
 ---
 
@@ -52,47 +54,64 @@ Klik logo di bawah ini untuk mencoba dashboard interaktif:
   <img src="https://github.com/Roysihombing/Final-Project-Data-Science/blob/main/images/Visual-Agglo.png" alt="Visualisasi PCA Agglomerative" width="700px"/>
 </p>
 
-Visualisasi di atas menunjukkan distribusi produk hasil reduksi dimensi menggunakan PCA (2 komponen utama).  
-Setiap warna merepresentasikan kelompok produk hasil **Hierarchical Agglomerative Clustering**.
+Visualisasi menunjukkan hasil reduksi dimensi PCA (2 komponen utama)  
+di mana setiap warna merepresentasikan kelompok produk hasil **Agglomerative Clustering (9 cluster)**.
 
 ---
 
-## 📋 Ringkasan Tiap Cluster – Agglomerative Clustering
+## 📋 Ringkasan Tiap Cluster – Agglomerative Clustering (Product Level)
 
-| Cluster | Dominant_Category | Dominant_Brand | Avg_Total_Purchases | Avg_Total_Amount | Avg_Ratings | Avg_Unique_Customers | Avg_Profitability_Index |
-|----------|------------------|----------------|----------------------|------------------|--------------|----------------------|--------------------------|
-| 0 | Books | Adidas | 101,845 | 25,995,338 | 3.12 | 16,969 | 4,331,222 |
-| 1 | Electronics | BlueStar | 12,679 | 3,210,780 | 3.64 | 2,273 | 575,483 |
-| 2 | Electronics | Pepsi | 191 | 47,035 | 3.01 | 35 | 8,487 |
+| Cluster | Dominant_Category | Dominant_Product | Avg_Total_Purchases | Avg_Ratings | Avg_Total_Amount | Avg_Profitability_Index |
+|:--------|:------------------|:-----------------|--------------------:|-------------:|-----------------:|------------------------:|
+| 0 | Electronics | Action | 17.22 | 3.17 | 4,317.78 | 763.88 |
+| 1 | Electronics | Acer Swift | 3,475.08 | 3.24 | 886,534.17 | 164,853.40 |
+| 2 | Home Decor | Bathtub | 3,243.54 | 3.11 | 829,082.86 | 153,858.61 |
+| 3 | Clothing | A-line dress | 3,263.34 | 3.10 | 830,536.94 | 154,102.32 |
+| 4 | Books | Biography | 9,779.74 | 3.12 | 2,505,839.60 | 461,560.87 |
+| 5 | Electronics | 4K TV | 6,489.45 | 3.12 | 1,652,005.42 | 306,216.28 |
+| 6 | Clothing | Boots | 6,537.85 | 3.11 | 1,668,121.83 | 307,273.68 |
+| 7 | Home Decor | Bed | 6,460.85 | 3.11 | 1,644,557.10 | 304,625.83 |
+| 8 | Grocery | Adventure | 13,081.15 | 3.25 | 3,334,116.59 | 612,850.09 |
 
 ---
 
 ## 💬 Interpretasi Segmentasi Produk
 
-| Cluster | Kategori & Brand Dominan | Karakteristik Produk | Implikasi Bisnis | Nama Segmen |
-|:--------|:-------------------------|:--------------------|:-----------------|:-------------|
-| **Cluster 0** | Books – Adidas | Volume penjualan dan profit tertinggi. Rating stabil menunjukkan popularitas tinggi. | Pertahankan stok dan promosi untuk menjaga stabilitas penjualan. | 🔵 **High-Performer Segment** |
-| **Cluster 1** | Electronics – BlueStar | Rating tertinggi dengan volume menengah. Pelanggan loyal dengan kepuasan tinggi. | Jaga kualitas dan gunakan ulasan positif untuk memperkuat branding. | 🟣 **Trusted Mid-Tier Electronics** |
-| **Cluster 2** | Electronics – Pepsi | Penjualan dan profit rendah, pelanggan terbatas. | Perlu strategi promosi atau evaluasi harga agar lebih kompetitif. | 🟠 **Low-Tier Electronics** |
+| Cluster | Kategori & Produk Dominan | Karakteristik Produk | Implikasi Inventory | Nama Segmen |
+|:--------|:--------------------------|:--------------------|:--------------------|:-------------|
+| **0** | Electronics – Action | Penjualan & profit rendah, pelanggan sedikit, rating standar. | Butuh promosi aktif & reposisi produk. | 🟠 **Low-Performing Electronics** |
+| **1** | Electronics – Acer Swift | Penjualan & profit tinggi, rating stabil, loyalitas pelanggan kuat. | Pertahankan stok dan promosi nilai tambah. | 🔵 **Mid-Tier Tech Segment** |
+| **2** | Home Decor – Bathtub | Penjualan stabil, profit cukup tinggi, pelanggan loyal. | Fokus pada stok unggulan & variasi desain. | 🟢 **Stable Home Decor** |
+| **3** | Clothing – A-line Dress | Penjualan stabil & profit menengah. Cocok untuk fashion kasual. | Pertahankan desain populer & promosi musiman. | 🔵 **Consistent Fashion Segment** |
+| **4** | Books – Biography | Penjualan & profit sangat tinggi, permintaan luas & stabil. | Pertahankan stok populer & perluas distribusi. | 🟢 **High-Value Literature** |
+| **5** | Electronics – 4K TV | Produk premium dengan profit besar & rating stabil. | Fokus pada inovasi & kampanye fitur teknologi. | 🟣 **Premium Visual Tech** |
+| **6** | Clothing – Boots | Profit tinggi, rating stabil, cocok untuk tren musiman. | Terapkan limited edition & stok adaptif. | 🔵 **Trend-Driven Apparel** |
+| **7** | Home Decor – Bed | Produk furnitur bernilai tinggi, pelanggan luas & loyal. | Jaga kualitas bahan & waktu pengiriman. | 🟢 **Premium Furniture Segment** |
+| **8** | Grocery – Adventure | Penjualan, profit, & pelanggan tertinggi. | Pastikan pasokan & distribusi efisien. | 🟢 **Core Grocery Segment** |
+
+---
+
+## 💼 Rekomendasi Bisnis
+
+- **Perbaiki kinerja segmen lemah** (*Low-Performing Electronics*) dengan promosi aktif dan peningkatan kualitas produk.  
+- **Pertahankan segmen unggulan** (*Core Grocery*, *High-Value Literature*) melalui stok terjaga dan distribusi efisien.  
+- **Lakukan promosi fleksibel** pada segmen menengah (*Mid-Tier Tech*, *Trend-Driven Apparel*) dengan inovasi dan kampanye mengikuti tren.  
+- **Tingkatkan citra segmen premium** (*Premium Visual Tech*, *Premium Furniture*) dengan kualitas unggul dan pelayanan pelanggan terbaik.  
 
 ---
 
 ## 🧩 Kesimpulan
 
-Hasil analisis menunjukkan bahwa:
-- **Agglomerative Clustering** menghasilkan segmentasi paling representatif dengan 3 kelompok utama.
-- Produk dengan performa tinggi (Cluster 0) layak diprioritaskan untuk distribusi dan promosi berkelanjutan.
-- Produk dengan loyalitas pelanggan tinggi (Cluster 1) menjadi basis penguatan brand.
-- Produk berperforma rendah (Cluster 2) memerlukan pendekatan promosi dan evaluasi harga.
-
-Insight ini membantu perusahaan menentukan **strategi stok, pricing, dan marketing** secara lebih efektif berdasarkan hasil analisis data.
+- Model terbaik: **Agglomerative Clustering (9 cluster, Silhouette Score: 0.658)**  
+- Segmentasi produk berhasil mengungkap perbedaan performa antar kategori.  
+- Produk dengan performa tinggi dan stabil (Books & Grocery) layak diprioritaskan.  
+- Hasil analisis membantu perusahaan dalam menentukan **strategi stok, pricing, dan promosi** berbasis data.
 
 ---
 
 ## 📓 Notebook Analisis
 
-Notebook lengkap mencakup eksplorasi data, pemodelan, evaluasi, dan interpretasi hasil:  
-📘 [`Fiks_Final_Project_DS.ipynb`](./Final_Project_DS_Roy.ipynb)
+📘 [`Final_Project_DS_Roy.ipynb`](./Final_Project_DS_Roy.ipynb)
 
 ---
 
@@ -103,20 +122,20 @@ Notebook lengkap mencakup eksplorasi data, pemodelan, evaluasi, dan interpretasi
 - **Pandas**, **NumPy**
 - **Scikit-learn**
 - **Plotly Express**
-- **Matplotlib / Seaborn**
+- **Matplotlib**, **Seaborn**
 - **Joblib**, **Requests**
 
 ---
 
 ## 📈 Tahapan Analisis Data
 
-1. **Persiapan Dataset** – Import dan pembersihan data  
-2. **Feature Engineering** – Pembentukan metrik performa (penjualan, profit, rating)  
-3. **Standarisasi & PCA** – Reduksi dimensi untuk meningkatkan hasil clustering  
-4. **Clustering Modeling** – K-Means, Agglomerative, dan DBSCAN  
-5. **Evaluasi Model** – Menggunakan *Silhouette Score*  
-6. **Interpretasi & Visualisasi** – Analisis cluster dan insight bisnis  
-7. **Deployment** – Dashboard analitik di Streamlit  
+1. **Data Preparation** – Pembersihan dan standarisasi dataset  
+2. **Feature Engineering** – Pembuatan metrik performa penjualan dan profit  
+3. **PCA** – Reduksi dimensi data  
+4. **Modeling** – K-Means, Agglomerative, dan DBSCAN  
+5. **Evaluasi Model** – Berdasarkan *Silhouette Score*  
+6. **Interpretasi & Insight Bisnis** – Analisis karakter tiap cluster  
+7. **Deployment** – Dashboard interaktif menggunakan Streamlit  
 
 ---
 
