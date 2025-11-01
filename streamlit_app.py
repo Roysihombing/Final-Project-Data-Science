@@ -404,15 +404,14 @@ if mode == "📊 Segmentasi Produk":
                         st.info("Ringkasan cluster tidak tersedia untuk model ini.")
 
 else:
-    st.subheader("📈 Analisis Pergerakan Penjualan Produk (sample 20%)")
+    st.subheader("📈 Analisis Pergerakan Penjualan Produk")
+    st.write(
+        "Bagian ini menampilkan tren penjualan, perbandingan antar kategori produk, serta distribusi rating "
+        "untuk memberikan gambaran umum mengenai performa produk di pasar."
+    )
     st.dataframe(sales_df.head(10), use_container_width=True)
 
-    product_col = None
-    for cand in ['Product_Name', 'products', 'Product_Type', 'products']:
-        if cand in sales_df.columns:
-            product_col = cand
-            break
-
+    product_col = next((c for c in ['Product_Name', 'products', 'Product_Type'] if c in sales_df.columns), None)
     if product_col is None:
         st.error("Tidak ditemukan kolom produk yang sesuai (misalnya 'Product_Name' atau 'products').")
     else:
@@ -425,84 +424,94 @@ else:
             if 'Date' in prod_df.columns:
                 prod_df['Date'] = pd.to_datetime(prod_df['Date'])
 
-                y_col = None
-                for cand in ['Total_Amount', 'Amount', 'Total_Purchases']:
-                    if cand in prod_df.columns:
-                        y_col = cand
-                        break
-
+                y_col = next((c for c in ['Total_Amount', 'Amount', 'Total_Purchases'] if c in prod_df.columns), None)
                 if y_col is None:
                     st.error("Tidak ditemukan kolom metrik penjualan seperti 'Total_Amount', 'Amount', atau 'Total_Purchases'.")
                 else:
+                    # === 1️⃣ Tren Penjualan Bulanan ===
                     prod_df['Month'] = prod_df['Date'].dt.to_period('M')
                     monthly = prod_df.groupby('Month')[y_col].sum().reset_index()
                     monthly['Month'] = monthly['Month'].astype(str)
 
+                    st.markdown("### 📆 Tren Penjualan Bulanan")
+                    st.write(
+                        f"Grafik di bawah menunjukkan bagaimana penjualan **{sel}** berubah dari waktu ke waktu. "
+                        "Dari grafik ini, kita dapat melihat adanya peningkatan, penurunan, atau kestabilan penjualan setiap bulan."
+                    )
+
                     fig_line = px.line(
-                        monthly,
-                        x='Month', y=y_col,
-                        title=f"📈 Tren Penjualan Bulanan – {sel}",
-                        markers=True,
-                        line_shape='spline'
+                        monthly, x='Month', y=y_col,
+                        title=f"📈 Tren Penjualan – {sel}",
+                        markers=True, line_shape='spline'
                     )
                     fig_line.update_layout(xaxis_title="Bulan", yaxis_title=y_col, template="plotly_white")
                     st.plotly_chart(fig_line, use_container_width=True)
 
+                    # Insight perubahan terakhir
                     if len(monthly) >= 2:
                         diff = monthly[y_col].iloc[-1] - monthly[y_col].iloc[-2]
                         if diff > 0:
-                            st.success(f"📊 Penjualan {sel} meningkat {diff:,.0f} dibanding bulan sebelumnya.")
+                            st.success(f"Penjualan {sel} **meningkat {diff:,.0f}** dibanding bulan sebelumnya.")
                         elif diff < 0:
-                            st.warning(f"📉 Penjualan {sel} menurun {abs(diff):,.0f} dibanding bulan sebelumnya.")
+                            st.warning(f"Penjualan {sel} **menurun {abs(diff):,.0f}** dibanding bulan sebelumnya.")
                         else:
-                            st.info(f"➡️ Penjualan {sel} stabil dibanding bulan sebelumnya.")
+                            st.info(f"Penjualan {sel} **stabil** dibanding bulan sebelumnya.")
 
                     st.divider()
+
+                    # === 2️⃣ Perbandingan Penjualan antar Kategori ===
                     if 'Product_Category' in sales_df.columns:
-                        cat_df = sales_df.groupby('Product_Category')[y_col].sum().reset_index().sort_values(y_col, ascending=False)
+                        st.markdown("### 🏷️ Total Penjualan per Kategori Produk")
+                        st.write(
+                            "Grafik batang berikut menunjukkan total penjualan untuk setiap kategori produk. "
+                            "Kategori dengan batang paling tinggi merupakan kategori dengan performa penjualan terbaik secara keseluruhan."
+                        )
+                        cat_df = (
+                            sales_df.groupby('Product_Category')[y_col]
+                            .sum()
+                            .reset_index()
+                            .sort_values(y_col, ascending=False)
+                        )
                         fig_bar = px.bar(
                             cat_df, x='Product_Category', y=y_col,
-                            title="🏷️ Total Penjualan per Kategori Produk",
+                            title="🏷️ Total Penjualan per Kategori",
                             color=y_col, color_continuous_scale='Viridis'
                         )
                         fig_bar.update_layout(xaxis_title="Kategori", yaxis_title=y_col, template="plotly_white")
                         st.plotly_chart(fig_bar, use_container_width=True)
 
-                    if 'products' in sales_df.columns:
-                        sales_df['Date'] = pd.to_datetime(sales_df['Date'], errors='coerce')
-                        sales_df['Month'] = sales_df['Date'].dt.strftime('%b-%Y')
-                        heat = sales_df.groupby(['Month', 'products'])[y_col].sum().reset_index()
-                        pivot_heat = heat.pivot(index='products', columns='Month', values=y_col).fillna(0)
-                        fig_heat = px.imshow(
-                            pivot_heat,
-                            labels=dict(x="Bulan", y="Brand", color=y_col),
-                            title="🔥 Heatmap Penjualan per Brand & Bulan",
-                            color_continuous_scale="YlGnBu"
-                        )
-                        st.plotly_chart(fig_heat, use_container_width=True)
-
+                    # === 4️⃣ Distribusi Rating Produk ===
                     if 'Ratings' in sales_df.columns:
+                        st.markdown("### ⭐ Distribusi Rating Produk")
+                        st.write(
+                            "Distribusi berikut menunjukkan sebaran nilai rating dari seluruh produk. "
+                            "Semakin banyak batang di sisi kanan berarti mayoritas produk mendapatkan rating tinggi dari pelanggan."
+                        )
                         fig_hist = px.histogram(
                             sales_df, x='Ratings', nbins=20,
-                            title="⭐ Distribusi Rating Produk",
+                            title="⭐ Sebaran Rating Produk",
                             color='Product_Category' if 'Product_Category' in sales_df.columns else None,
                             marginal="box"
                         )
                         fig_hist.update_layout(template="plotly_white")
                         st.plotly_chart(fig_hist, use_container_width=True)
 
+                    # === 5️⃣ Insight ===
+                    st.divider()
+                    st.markdown("### 💡 Insight")
                     top_cat = None
                     if 'Product_Category' in sales_df.columns:
                         top_cat = sales_df.groupby('Product_Category')[y_col].sum().idxmax()
-                    st.markdown("### 💡 Insight Otomatis:")
-                    st.write("- Produk dengan penjualan tertinggi secara keseluruhan:",
-                             f"**{top_cat}**" if top_cat else "Data tidak lengkap.")
+                    st.write(
+                        "- **Kategori dengan total penjualan tertinggi:**",
+                        f"**{top_cat}**" if top_cat else "Data tidak lengkap."
+                    )
                     if 'Ratings' in sales_df.columns:
                         avg_rating = sales_df['Ratings'].mean()
-                        st.write(f"- Rata-rata rating semua produk: **{avg_rating:.2f} / 5**")
+                        st.write(f"- **Rata-rata rating semua produk:** {avg_rating:.2f} / 5")
                     if 'City' in sales_df.columns:
                         top_city = sales_df['City'].value_counts().idxmax()
-                        st.write(f"- Kota dengan transaksi terbanyak: **{top_city}**")
+                        st.write(f"- **Kota dengan transaksi terbanyak:** {top_city}")
             else:
                 st.error("Kolom 'Date' tidak ditemukan di sales_sampled.csv")
 
